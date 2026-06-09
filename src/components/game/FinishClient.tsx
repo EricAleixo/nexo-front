@@ -3,25 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Trophy,
-  Users,
-  Target,
-  HelpCircle,
-  TrendingUp,
-  TrendingDown,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Crown,
-  Star,
-  BarChart3,
-  ChevronRight,
-  Medal,
-  Flame,
-  Zap,
-  RefreshCw,
-  Plus,
-  Award,
+  Trophy, Users, Target, HelpCircle, TrendingUp, TrendingDown,
+  CheckCircle2, XCircle, Clock, Crown, Star, BarChart3, ChevronRight,
+  Medal, Flame, Zap, RefreshCw, Plus, Award,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -59,6 +43,12 @@ interface Props {
   players: Player[];
   questions: Question[];
   answersPerQuestion: Answer[][];
+  /**
+   * ID do jogador atual, resolvido pelo servidor via cookie player_session.
+   * Null se o cookie expirou ou o jogador não pertence à sala.
+   * NUNCA derivado de sessionStorage.
+   */
+  currentPlayerId: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -81,13 +71,12 @@ function getCorrectRate(
   questionIndex: number,
   answersPerQuestion: Answer[][],
   questions: Question[],
-  guestPlayers: Player[]
+  guestPlayers: Player[],
 ): number {
   if (guestPlayers.length === 0) return 0;
   const answers = answersPerQuestion[questionIndex] ?? [];
   const correctId = getCorrectOptionId(questions[questionIndex]);
-  const correct = answers.filter((a) => a.optionId === correctId).length;
-  return correct / guestPlayers.length;
+  return answers.filter((a) => a.optionId === correctId).length / guestPlayers.length;
 }
 
 function getDifficultyConfig(rate: number) {
@@ -118,6 +107,7 @@ function getDifficultyConfig(rate: number) {
 
 function AnimatedNumber({ value, duration = 1200 }: { value: number; duration?: number }) {
   const [display, setDisplay] = useState(0);
+
   useEffect(() => {
     let start: number | null = null;
     const step = (ts: number) => {
@@ -129,6 +119,7 @@ function AnimatedNumber({ value, duration = 1200 }: { value: number; duration?: 
     };
     requestAnimationFrame(step);
   }, [value, duration]);
+
   return <>{display.toLocaleString()}</>;
 }
 
@@ -155,11 +146,10 @@ function StatCard({
         <Icon className="size-4 text-zinc-400" />
       </div>
       <p className={`text-2xl font-black tabular-nums leading-none ${valueColor}`}>
-        {animated && numericValue !== undefined ? (
-          <AnimatedNumber value={numericValue} />
-        ) : (
-          value
-        )}
+        {animated && numericValue !== undefined
+          ? <AnimatedNumber value={numericValue} />
+          : value
+        }
       </p>
       <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{label}</p>
     </div>
@@ -174,11 +164,9 @@ function Podium({ players }: { players: Player[] }) {
   if (top3.length === 0) return null;
 
   const positions =
-    top3.length >= 3
-      ? [top3[1], top3[0], top3[2]]
-      : top3.length === 2
-      ? [top3[1], top3[0]]
-      : [top3[0]];
+    top3.length >= 3 ? [top3[1], top3[0], top3[2]]
+    : top3.length === 2 ? [top3[1], top3[0]]
+    : [top3[0]];
 
   const podiumConfig =
     top3.length >= 3
@@ -213,9 +201,7 @@ function Podium({ players }: { players: Player[] }) {
                     <Crown className="size-5 text-amber-400 fill-amber-400/30" />
                   </div>
                 )}
-                <div
-                  className={`${cfg.size} rounded-full ${getAvatarColor(player.name)} flex items-center justify-center font-black text-white ring-2 ${cfg.ring} shadow-lg`}
-                >
+                <div className={`${cfg.size} rounded-full ${getAvatarColor(player.name)} flex items-center justify-center font-black text-white ring-2 ${cfg.ring} shadow-lg`}>
                   {player.name.charAt(0).toUpperCase()}
                 </div>
               </div>
@@ -225,9 +211,7 @@ function Podium({ players }: { players: Player[] }) {
               <span className={`text-xs font-black tabular-nums ${cfg.rankColor}`}>
                 {player.score.toLocaleString()} pts
               </span>
-              <div
-                className={`w-20 ${cfg.height} rounded-t-xl bg-gradient-to-b ${cfg.blockGradient} flex items-center justify-center font-black text-white/80 text-sm`}
-              >
+              <div className={`w-20 ${cfg.height} rounded-t-xl bg-gradient-to-b ${cfg.blockGradient} flex items-center justify-center font-black text-white/80 text-sm`}>
                 {cfg.label}
               </div>
             </div>
@@ -248,31 +232,23 @@ function ScoreRow({ player, rank, isMe }: { player: Player; rank: number; isMe: 
   ];
 
   return (
-    <div
-      className={`
-        flex items-center gap-3 rounded-xl px-4 py-3 border transition-all
-        ${isMe
-          ? "border-indigo-500/40 bg-indigo-500/10"
-          : "border-zinc-800/60 bg-zinc-900/50"
-        }
-      `}
-    >
+    <div className={[
+      "flex items-center gap-3 rounded-xl px-4 py-3 border transition-all",
+      isMe ? "border-indigo-500/40 bg-indigo-500/10" : "border-zinc-800/60 bg-zinc-900/50",
+    ].join(" ")}>
       <div className="w-6 shrink-0 flex items-center justify-center">
-        {rank < 3 ? rankMedals[rank] : (
-          <span className="text-xs font-black text-zinc-600 tabular-nums">#{rank + 1}</span>
-        )}
+        {rank < 3
+          ? rankMedals[rank]
+          : <span className="text-xs font-black text-zinc-600 tabular-nums">#{rank + 1}</span>
+        }
       </div>
-      <span
-        className={`size-8 rounded-full ${getAvatarColor(player.name)} flex items-center justify-center text-sm font-black text-white shrink-0`}
-      >
+      <span className={`size-8 rounded-full ${getAvatarColor(player.name)} flex items-center justify-center text-sm font-black text-white shrink-0`}>
         {player.name.charAt(0).toUpperCase()}
       </span>
       <span className="flex-1 text-sm font-semibold text-white truncate">
         {player.name}
         {isMe && (
-          <span className="ml-2 text-[10px] font-black text-indigo-400 uppercase tracking-wider">
-            você
-          </span>
+          <span className="ml-2 text-[10px] font-black text-indigo-400 uppercase tracking-wider">você</span>
         )}
       </span>
       {player.answeredCorrectly !== undefined && (
@@ -289,15 +265,7 @@ function ScoreRow({ player, rank, isMe }: { player: Player; rank: number; isMe: 
 
 // ─── Question Stats Row ───────────────────────────────────────────────────────
 
-function QuestionStatRow({
-  question,
-  index,
-  rate,
-}: {
-  question: Question;
-  index: number;
-  rate: number;
-}) {
+function QuestionStatRow({ question, index, rate }: { question: Question; index: number; rate: number }) {
   const pct = Math.round(rate * 100);
   const diff = getDifficultyConfig(rate);
   const DiffIcon = diff.icon;
@@ -317,9 +285,7 @@ function QuestionStatRow({
         <p className="flex-1 text-sm font-semibold text-zinc-300 leading-snug">{question.title}</p>
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg shrink-0 ${diff.bg}`}>
           <DiffIcon className={`size-3 ${diff.textColor}`} />
-          <span className={`text-[10px] font-black uppercase tracking-wider ${diff.textColor}`}>
-            {diff.label}
-          </span>
+          <span className={`text-[10px] font-black uppercase tracking-wider ${diff.textColor}`}>{diff.label}</span>
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -356,50 +322,28 @@ function HostView({
     const correctId = getCorrectOptionId(questions[qi]);
     return answers.filter((a) => a.optionId === correctId);
   });
-  const globalRate =
-    totalAnswers.length > 0
-      ? Math.round((correctAnswers.length / totalAnswers.length) * 100)
-      : 0;
+  const globalRate = totalAnswers.length > 0
+    ? Math.round((correctAnswers.length / totalAnswers.length) * 100)
+    : 0;
 
   const questionStats = questions.map((q, i) => ({
-    q,
-    i,
+    q, i,
     rate: getCorrectRate(i, answersPerQuestion, questions, guestPlayers),
   }));
-
   const sortedByRate = [...questionStats].sort((a, b) => a.rate - b.rate);
   const hardest = sortedByRate[0];
   const easiest = sortedByRate[sortedByRate.length - 1];
 
   return (
     <div className="flex flex-col gap-6">
-
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <StatCard
-          icon={Users}
-          label="Jogadores"
-          animated
-          numericValue={guestPlayers.length}
-        />
-        <StatCard
-          icon={Target}
-          label="Taxa de acerto"
-          value={`${globalRate}%`}
-          valueColor={globalRate >= 60 ? "text-emerald-400" : "text-amber-400"}
-        />
-        <StatCard
-          icon={HelpCircle}
-          label="Perguntas"
-          animated
-          numericValue={questions.length}
-        />
+        <StatCard icon={Users} label="Jogadores" animated numericValue={guestPlayers.length} />
+        <StatCard icon={Target} label="Taxa de acerto" value={`${globalRate}%`} valueColor={globalRate >= 60 ? "text-emerald-400" : "text-amber-400"} />
+        <StatCard icon={HelpCircle} label="Perguntas" animated numericValue={questions.length} />
       </div>
 
-      {/* Podium */}
       <Podium players={players} />
 
-      {/* Highlights: Hardest / Easiest */}
       {questions.length > 1 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4 flex flex-col gap-3">
@@ -412,14 +356,9 @@ function HostView({
             <p className="text-sm font-semibold text-zinc-300 leading-snug">{hardest?.q.title}</p>
             <div className="flex items-center justify-between">
               <div className="h-1.5 flex-1 rounded-full bg-zinc-800 overflow-hidden mr-3">
-                <div
-                  className="h-full rounded-full bg-red-400 transition-all duration-700"
-                  style={{ width: `${Math.round((hardest?.rate ?? 0) * 100)}%` }}
-                />
+                <div className="h-full rounded-full bg-red-400 transition-all duration-700" style={{ width: `${Math.round((hardest?.rate ?? 0) * 100)}%` }} />
               </div>
-              <span className="text-xs font-black text-red-400 tabular-nums shrink-0">
-                {Math.round((hardest?.rate ?? 0) * 100)}% acerto
-              </span>
+              <span className="text-xs font-black text-red-400 tabular-nums shrink-0">{Math.round((hardest?.rate ?? 0) * 100)}% acerto</span>
             </div>
           </div>
 
@@ -433,26 +372,18 @@ function HostView({
             <p className="text-sm font-semibold text-zinc-300 leading-snug">{easiest?.q.title}</p>
             <div className="flex items-center justify-between">
               <div className="h-1.5 flex-1 rounded-full bg-zinc-800 overflow-hidden mr-3">
-                <div
-                  className="h-full rounded-full bg-emerald-400 transition-all duration-700"
-                  style={{ width: `${Math.round((easiest?.rate ?? 0) * 100)}%` }}
-                />
+                <div className="h-full rounded-full bg-emerald-400 transition-all duration-700" style={{ width: `${Math.round((easiest?.rate ?? 0) * 100)}%` }} />
               </div>
-              <span className="text-xs font-black text-emerald-400 tabular-nums shrink-0">
-                {Math.round((easiest?.rate ?? 0) * 100)}% acerto
-              </span>
+              <span className="text-xs font-black text-emerald-400 tabular-nums shrink-0">{Math.round((easiest?.rate ?? 0) * 100)}% acerto</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Acertos por pergunta */}
       <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/50 backdrop-blur-sm px-5 py-5">
         <div className="flex items-center gap-2 mb-4">
           <BarChart3 className="size-4 text-zinc-500" />
-          <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
-            Desempenho por pergunta
-          </p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Desempenho por pergunta</p>
         </div>
         <div className="flex flex-col gap-3">
           {questionStats.map(({ q, i, rate }) => (
@@ -461,7 +392,6 @@ function HostView({
         </div>
       </div>
 
-      {/* Placar final */}
       <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/50 backdrop-blur-sm px-5 py-5">
         <div className="flex items-center gap-2 mb-4">
           <Trophy className="size-4 text-zinc-500" />
@@ -500,10 +430,8 @@ function PlayerView({
     const correctId = getCorrectOptionId(q);
     const chosenOption = myAnswer ? q.options.find((o) => o.id === myAnswer.optionId) : null;
     const correctOption = q.options.find((o) => o.isCorrect);
-    const status: "correct" | "wrong" | "skipped" = !myAnswer
-      ? "skipped"
-      : myAnswer.optionId === correctId
-      ? "correct"
+    const status: "correct" | "wrong" | "skipped" = !myAnswer ? "skipped"
+      : myAnswer.optionId === correctId ? "correct"
       : "wrong";
     return { q, status, chosenOption, correctOption };
   });
@@ -518,13 +446,10 @@ function PlayerView({
     <Award key="2" className="size-8 text-zinc-400 fill-zinc-400/20" />,
     <Star key="3" className="size-8 text-amber-700 fill-amber-700/20" />,
   ];
-
   const rankLabels = ["1° lugar", "2° lugar", "3° lugar", "4° lugar", "5° lugar", "6° lugar", "7° lugar", "8° lugar"];
 
   return (
     <div className="flex flex-col gap-6">
-
-      {/* Personal banner */}
       <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/50 backdrop-blur-sm px-6 py-8 text-center flex flex-col items-center gap-3">
         <div className="size-14 rounded-2xl bg-zinc-800/80 flex items-center justify-center">
           {rankIcons[myRank] ?? <Trophy className="size-7 text-indigo-400" />}
@@ -534,13 +459,10 @@ function PlayerView({
           <p className="text-sm text-zinc-500">de {sorted.length} jogadores</p>
         </div>
         <div className="mt-1 px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-          <p className="text-sm font-black text-indigo-400 tabular-nums">
-            {currentPlayer.score.toLocaleString()} pontos
-          </p>
+          <p className="text-sm font-black text-indigo-400 tabular-nums">{currentPlayer.score.toLocaleString()} pontos</p>
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <StatCard icon={CheckCircle2} label="Acertos" animated numericValue={correctCount} valueColor="text-emerald-400" />
         <StatCard icon={XCircle} label="Erros" animated numericValue={wrongCount} valueColor="text-red-400" />
@@ -550,10 +472,8 @@ function PlayerView({
         <StatCard icon={Target} label="Precisão" value={`${accuracy}%`} valueColor={accuracy >= 70 ? "text-emerald-400" : accuracy >= 40 ? "text-amber-400" : "text-red-400"} />
       </div>
 
-      {/* Podium */}
       <Podium players={players} />
 
-      {/* Scoreboard */}
       <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/50 backdrop-blur-sm px-5 py-5">
         <div className="flex items-center gap-2 mb-4">
           <Trophy className="size-4 text-zinc-500" />
@@ -566,7 +486,6 @@ function PlayerView({
         </div>
       </div>
 
-      {/* My answers */}
       <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/50 backdrop-blur-sm px-5 py-5">
         <div className="flex items-center gap-2 mb-4">
           <HelpCircle className="size-4 text-zinc-500" />
@@ -576,48 +495,31 @@ function PlayerView({
           {myAnswers.map(({ q, status, chosenOption, correctOption }, i) => (
             <div
               key={q.id}
-              className={`
-                flex items-start gap-4 rounded-xl border px-4 py-4
-                ${status === "correct"
-                  ? "border-emerald-500/25 bg-emerald-500/5"
-                  : status === "wrong"
-                  ? "border-red-500/20 bg-red-500/5"
-                  : "border-zinc-800/50 bg-zinc-900/30"
-                }
-              `}
+              className={[
+                "flex items-start gap-4 rounded-xl border px-4 py-4",
+                status === "correct" ? "border-emerald-500/25 bg-emerald-500/5"
+                  : status === "wrong" ? "border-red-500/20 bg-red-500/5"
+                  : "border-zinc-800/50 bg-zinc-900/30",
+              ].join(" ")}
             >
-              {/* Icon */}
-              <div
-                className={`
-                  flex size-8 shrink-0 items-center justify-center rounded-lg mt-0.5
-                  ${status === "correct" ? "bg-emerald-500/15" : status === "wrong" ? "bg-red-500/10" : "bg-zinc-800/80"}
-                `}
-              >
+              <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg mt-0.5 ${status === "correct" ? "bg-emerald-500/15" : status === "wrong" ? "bg-red-500/10" : "bg-zinc-800/80"}`}>
                 {status === "correct" && <CheckCircle2 className="size-4 text-emerald-400" />}
                 {status === "wrong" && <XCircle className="size-4 text-red-400" />}
                 {status === "skipped" && <Clock className="size-4 text-zinc-500" />}
               </div>
-
-              {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-                    Pergunta {i + 1}
-                  </span>
-                  <span
-                    className={`text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${
-                      status === "correct"
-                        ? "text-emerald-400 bg-emerald-500/15"
-                        : status === "wrong"
-                        ? "text-red-400 bg-red-500/10"
-                        : "text-zinc-500 bg-zinc-800"
-                    }`}
-                  >
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">Pergunta {i + 1}</span>
+                  <span className={[
+                    "text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md",
+                    status === "correct" ? "text-emerald-400 bg-emerald-500/15"
+                      : status === "wrong" ? "text-red-400 bg-red-500/10"
+                      : "text-zinc-500 bg-zinc-800",
+                  ].join(" ")}>
                     {status === "correct" ? "Correto" : status === "wrong" ? "Errou" : "Pulou"}
                   </span>
                 </div>
                 <p className="text-sm font-semibold text-white leading-snug mb-2">{q.title}</p>
-
                 {status === "correct" && (
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="size-3 text-emerald-400 shrink-0" />
@@ -655,13 +557,18 @@ function PlayerView({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function FinishClient({ code, players, questions, answersPerQuestion }: Props) {
+export function FinishClient({ code, players, questions, answersPerQuestion, currentPlayerId }: Props) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
 
-  const currentPlayerId =
-    typeof window !== "undefined" ? localStorage.getItem("playerId") : null;
-  const currentPlayer = players.find((p) => p.id === currentPlayerId);
+  /**
+   * currentPlayer resolvido a partir do currentPlayerId passado pelo servidor.
+   * O servidor leu o cookie player_session e extraiu o playerId do JWT.
+   * Nenhuma leitura de sessionStorage aqui.
+   */
+  
+  // O host não está sendo detectado
+  const currentPlayer = players.find((p) => p.id === currentPlayerId) ?? null;
   const isHost = currentPlayer?.isHost ?? false;
 
   useEffect(() => {
@@ -671,14 +578,12 @@ export function FinishClient({ code, players, questions, answersPerQuestion }: P
 
   return (
     <>
-      {/* Background */}
       <div className="fixed inset-0 bg-[#080810] -z-10" />
       <div
         aria-hidden
         className="fixed inset-0 -z-10 pointer-events-none"
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(99,102,241,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,.035) 1px, transparent 1px)",
+          backgroundImage: "linear-gradient(rgba(99,102,241,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,.035) 1px, transparent 1px)",
           backgroundSize: "56px 56px",
         }}
       />
@@ -692,19 +597,13 @@ export function FinishClient({ code, players, questions, answersPerQuestion }: P
       />
 
       <div className="min-h-screen flex flex-col">
-
-        {/* Header */}
         <header className="border-b border-zinc-800/60 bg-[#080810]/80 backdrop-blur-xl sticky top-0 z-10">
           <div className="mx-auto flex max-w-3xl items-center justify-between px-4 sm:px-6 py-3 gap-4">
-            <span className="text-sm font-black tracking-widest text-zinc-600 font-mono">
-              {code}
-            </span>
-
+            <span className="text-sm font-black tracking-widest text-zinc-600 font-mono">{code}</span>
             <div className="flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5">
               <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-xs font-black text-emerald-300">Partida encerrada</span>
             </div>
-
             {isHost ? (
               <div className="flex items-center gap-2 rounded-full border border-purple-500/25 bg-purple-500/10 px-3 py-1.5 shrink-0">
                 <Crown className="size-3.5 text-purple-400" />
@@ -721,62 +620,23 @@ export function FinishClient({ code, players, questions, answersPerQuestion }: P
           </div>
         </header>
 
-        {/* Body */}
-        <main
-          className={`flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 transition-all duration-500 ${
-            visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
+        <main className={`flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
           {isHost ? (
-            <HostView
-              players={players}
-              questions={questions}
-              answersPerQuestion={answersPerQuestion}
-            />
+            <HostView players={players} questions={questions} answersPerQuestion={answersPerQuestion} />
           ) : currentPlayer ? (
-            <PlayerView
-              currentPlayer={currentPlayer}
-              players={players}
-              questions={questions}
-              answersPerQuestion={answersPerQuestion}
-            />
+            <PlayerView currentPlayer={currentPlayer} players={players} questions={questions} answersPerQuestion={answersPerQuestion} />
           ) : (
-            <HostView
-              players={players}
-              questions={questions}
-              answersPerQuestion={answersPerQuestion}
-            />
+            // Cookie expirado ou jogador não encontrado — exibe visão geral
+            <HostView players={players} questions={questions} answersPerQuestion={answersPerQuestion} />
           )}
 
-          {/* CTA */}
           <div className="flex gap-3 mt-10 justify-center">
             <button
               onClick={() => router.push("/")}
-              className="
-                group relative flex items-center justify-center gap-2.5 overflow-hidden
-                rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600
-                px-8 py-4 text-sm font-black text-white
-                shadow-[0_0_32px_rgba(99,102,241,.35)]
-                hover:shadow-[0_0_48px_rgba(99,102,241,.55)]
-                hover:from-indigo-400 hover:to-purple-500
-                active:scale-[.97] transition-all duration-300
-              "
+              className="group relative flex items-center justify-center gap-2.5 overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 px-8 py-4 text-sm font-black text-white shadow-[0_0_32px_rgba(99,102,241,.35)] hover:shadow-[0_0_48px_rgba(99,102,241,.55)] hover:from-indigo-400 hover:to-purple-500 active:scale-[.97] transition-all duration-300"
             >
-              {isHost ? (
-                <>
-                  <Plus className="size-4" />
-                  Nova partida
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="size-4" />
-                  Jogar de novo
-                </>
-              )}
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full"
-              />
+              {isHost ? <><Plus className="size-4" />Nova partida</> : <><RefreshCw className="size-4" />Jogar de novo</>}
+              <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
             </button>
           </div>
         </main>

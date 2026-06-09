@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { Room } from "../lib/mock";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.1.107:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.0.5:3000";
 
 
 class RoomService {

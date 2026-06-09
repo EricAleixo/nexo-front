@@ -10,7 +10,7 @@ class AuthService {
         .map((c) => `${c.name}=${c.value}`)
         .join("; ");
 
-      const res = await fetch("http://192.168.1.107:3000/auth/me", { // ✅ IP direto
+      const res = await fetch("http://192.168.0.5:3000/auth/me", { // ✅ IP direto
         method: "GET",
         headers: {
           Cookie: cookieHeader,

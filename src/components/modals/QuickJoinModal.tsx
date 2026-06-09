@@ -1,38 +1,25 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Modal } from "../ui/Modal";
-import { useAuth } from "../AuthContext";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-/**
- * playerId deliberadamente ausente — identidade fica só no cookie HttpOnly.
- * O frontend só precisa de room.code para navegar.
- */
-interface CreateRoomResponse {
+interface JoinRoomResponse {
   room: { id: string; code: string };
-  player: { name: string; isHost: boolean };
+  player: { id: string; name: string; isHost: boolean };
 }
 
 type Status = "idle" | "loading" | "error";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/backend";
 const MAX_NAME_LENGTH = 24;
 
-// ─── Component ───────────────────────────────────────────────────────────────
-
 interface Props {
   open: boolean;
-  onClose: () => void;
+  roomCode: string;
+  onJoined: (playerId: string, isHost: boolean) => void; // ← adiciona isHost
 }
 
-export function CreateRoomModal({ open, onClose }: Props) {
-  const { user } = useAuth();
-  const router = useRouter();
+export function QuickJoinModal({ open, roomCode, onJoined }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [playerName, setPlayerName] = useState("");
@@ -41,17 +28,17 @@ export function CreateRoomModal({ open, onClose }: Props) {
 
   useEffect(() => {
     if (open) {
-      const t = setTimeout(() => inputRef.current?.focus(), 80);
-      return () => clearTimeout(t);
+      setTimeout(() => inputRef.current?.focus(), 80);
+    } else {
+      setPlayerName("");
+      setStatus("idle");
+      setErrorMsg("");
     }
-    setPlayerName("");
-    setStatus("idle");
-    setErrorMsg("");
   }, [open]);
 
   const isDisabled = status === "loading" || playerName.trim().length === 0;
 
-  async function handleCreate() {
+  async function handleJoin() {
     const name = playerName.trim();
     if (!name || status === "loading") return;
 
@@ -59,57 +46,81 @@ export function CreateRoomModal({ open, onClose }: Props) {
     setErrorMsg("");
 
     try {
-      const res = await fetch(`${API_URL}/rooms`, {
+      const res = await fetch(`${API_URL}/players`, {
         method: "POST",
-        /**
-         * credentials: "include" faz o browser persistir o cookie
-         * player_session que o backend seta no Set-Cookie da resposta.
-         * Sem isso o cookie é ignorado em requisições cross-origin.
-         */
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerName: name, userId: user?.id }),
+        body: JSON.stringify({ name, roomCode }),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(
-          (body as { message?: string })?.message ?? `Erro ${res.status}`
-        );
+        throw new Error(body?.message ?? `Erro ${res.status}`);
       }
 
-      const data: CreateRoomResponse = await res.json();
+      const data: JoinRoomResponse = await res.json();
 
-      /**
-       * ✅ Nenhum dado de identidade no sessionStorage.
-       * playerId e isHost vivem exclusivamente no cookie HttpOnly
-       * player_session setado pelo backend nesta resposta.
-       * O frontend só guarda o código da sala para navegação.
-       */
-      router.push(`/room/${data.room.code}/lobby`);
+      sessionStorage.setItem("playerId", data.player.id);
+      sessionStorage.setItem("roomCode", data.room.code);
+      sessionStorage.setItem("isHost", String(data.player.isHost)); // ← salva isHost
+
+      onJoined(data.player.id, data.player.isHost); // ← passa isHost
     } catch (err) {
       setStatus("error");
       setErrorMsg(
-        err instanceof Error ? err.message : "Não foi possível criar a sala."
+        err instanceof Error ? err.message : "Não foi possível entrar na sala.",
       );
     }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") void handleCreate();
+    if (e.key === "Enter") handleJoin();
   }
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
-      title="Criar Sala"
-      subtitle="Insira seu nome para começar."
+      onClose={() => {}}
+      title="Entrar na Sala"
+      subtitle={
+        <>
+          Sala{" "}
+          <span className="font-black tracking-widest text-indigo-400">
+            {roomCode}
+          </span>{" "}
+          — insira seu nome para participar.
+        </>
+      }
     >
       <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/8 px-4 py-3">
+          <svg
+            className="size-4 shrink-0 text-indigo-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33"
+            />
+          </svg>
+          <span className="text-xs text-zinc-400">
+            Você está entrando na sala{" "}
+            <span
+              className="font-black tracking-widest text-white"
+              style={{ fontFamily: "var(--font-syne)" }}
+            >
+              {roomCode}
+            </span>
+          </span>
+        </div>
+
         <div className="flex flex-col gap-2">
           <label
-            htmlFor="player-name"
+            htmlFor="quick-join-name"
             className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500"
           >
             Seu nome
@@ -118,7 +129,7 @@ export function CreateRoomModal({ open, onClose }: Props) {
           <div className="relative">
             <input
               ref={inputRef}
-              id="player-name"
+              id="quick-join-name"
               type="text"
               value={playerName}
               onChange={(e) => {
@@ -126,12 +137,12 @@ export function CreateRoomModal({ open, onClose }: Props) {
                 if (status === "error") setStatus("idle");
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Ex: Eric"
+              placeholder="Ex: João"
               maxLength={MAX_NAME_LENGTH}
               autoComplete="off"
               spellCheck={false}
               aria-invalid={status === "error"}
-              aria-describedby={status === "error" ? "create-error" : undefined}
+              aria-describedby={status === "error" ? "quick-join-error" : undefined}
               className={[
                 "w-full rounded-xl border bg-zinc-900 px-4 py-3.5 pr-14",
                 "text-base font-medium text-white placeholder-zinc-600",
@@ -155,7 +166,7 @@ export function CreateRoomModal({ open, onClose }: Props) {
 
           {status === "error" && (
             <p
-              id="create-error"
+              id="quick-join-error"
               role="alert"
               className="flex items-center gap-1.5 text-xs font-medium text-red-400"
             >
@@ -179,7 +190,7 @@ export function CreateRoomModal({ open, onClose }: Props) {
         </div>
 
         <button
-          onClick={() => void handleCreate()}
+          onClick={handleJoin}
           disabled={isDisabled}
           aria-busy={status === "loading"}
           className={[
@@ -197,18 +208,15 @@ export function CreateRoomModal({ open, onClose }: Props) {
               <svg aria-hidden="true" className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" strokeLinecap="round" />
               </svg>
-              Criando sala...
+              Entrando...
             </>
           ) : (
             <>
               <svg aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7" />
               </svg>
-              Criar Sala
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full"
-              />
+              Entrar na Sala
+              <span aria-hidden="true" className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
             </>
           )}
         </button>
@@ -218,7 +226,7 @@ export function CreateRoomModal({ open, onClose }: Props) {
           <kbd className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
             Enter
           </kbd>{" "}
-          para criar rapidamente
+          para entrar rapidamente
         </p>
       </div>
     </Modal>

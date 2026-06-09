@@ -1,11 +1,13 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.1.107:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.0.5:3000";
 
 export interface Question {
   id: string;
   title: string;
   order: number;
   roomId: string;
-  options: Option[];  // remova o ?
+  score: number;
+  createdAt: Date;
+  options: Option[];
 }
 
 export interface Option {

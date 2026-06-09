@@ -6,9 +6,19 @@ import { Modal } from "../ui/Modal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+/**
+ * O backend NÃO deve retornar playerId no body.
+ * A identidade do jogador vive exclusivamente no cookie HttpOnly `player_session`.
+ * O frontend só precisa saber para onde navegar.
+ */
 interface JoinRoomResponse {
-  room: { id: string; code: string };
-  player: { id: string; name: string; isHost: boolean };
+  room: { code: string };
+  /**
+   * name: para exibição de boas-vindas (não-sensível).
+   * isHost: apenas para UX inicial — NÃO usar como fonte de verdade para permissões.
+   *         O backend revalida a claim do cookie em cada operação protegida.
+   */
+  player: { name: string; isHost: boolean };
 }
 
 type Status = "idle" | "loading" | "error";
@@ -23,10 +33,13 @@ interface FormState {
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/backend";
 const CODE_LENGTH = 6;
 const MAX_NAME_LENGTH = 24;
-const EMPTY_DIGITS = () => Array<string>(CODE_LENGTH).fill("");
+
+/** Função pura — sem mutação de array externo */
+const createEmptyDigits = (): string[] => Array<string>(CODE_LENGTH).fill("");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Sanitiza entrada do usuário: apenas A-Z e 0-9, uppercase */
 function sanitizeCodeChar(char: string): string {
   return char.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
@@ -45,7 +58,7 @@ export function JoinRoomModal({ open, onClose }: Props) {
 
   const [form, setForm] = useState<FormState>({
     name: "",
-    digits: EMPTY_DIGITS(),
+    digits: createEmptyDigits(),
   });
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -53,86 +66,114 @@ export function JoinRoomModal({ open, onClose }: Props) {
   const roomCode = form.digits.join("");
   const isCodeComplete = roomCode.length === CODE_LENGTH;
   const isNameFilled = form.name.trim().length > 0;
-  const isDisabled = !isCodeComplete || !isNameFilled || status === "loading";
+  const isSubmitDisabled = !isCodeComplete || !isNameFilled || status === "loading";
 
-  // Reset & auto-focus on open/close
+  // ── Reset & auto-focus ────────────────────────────────────────────────────
+
   useEffect(() => {
     if (open) {
-      setTimeout(() => nameRef.current?.focus(), 80);
-    } else {
-      setForm({ name: "", digits: EMPTY_DIGITS() });
-      setStatus("idle");
-      setErrorMsg("");
+      // Pequeno delay para garantir que o modal está montado no DOM
+      const timer = setTimeout(() => nameRef.current?.focus(), 80);
+      return () => clearTimeout(timer);
     }
+
+    setForm({ name: "", digits: createEmptyDigits() });
+    setStatus("idle");
+    setErrorMsg("");
   }, [open]);
 
-  // ── Name handlers ──────────────────────────────────────────────────────────
+  // ── Name handlers ─────────────────────────────────────────────────────────
 
-  function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setForm((f) => ({
-      ...f,
-      name: e.target.value.slice(0, MAX_NAME_LENGTH),
-    }));
-    if (status === "error") setStatus("idle");
-  }
+  const handleNameChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((prev) => ({
+        ...prev,
+        name: e.target.value.slice(0, MAX_NAME_LENGTH),
+      }));
+      if (status === "error") setStatus("idle");
+    },
+    [status],
+  );
 
-  function handleNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") digitRefs.current[0]?.focus();
-  }
+  const handleNameKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") digitRefs.current[0]?.focus();
+    },
+    [],
+  );
 
-  // ── Digit handlers ─────────────────────────────────────────────────────────
+  // ── Digit handlers ────────────────────────────────────────────────────────
 
-  function handleDigitChange(index: number, value: string) {
-    const char = sanitizeCodeChar(value).slice(-1);
-    const next = [...form.digits];
-    next[index] = char;
-    setForm((f) => ({ ...f, digits: next }));
-    if (status === "error") setStatus("idle");
-    if (char && index < CODE_LENGTH - 1) {
-      digitRefs.current[index + 1]?.focus();
-    }
-  }
+  const handleDigitChange = useCallback(
+    (index: number, value: string) => {
+      const char = sanitizeCodeChar(value).slice(-1);
 
-  function handleDigitKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Backspace") {
-      if (!form.digits[index] && index > 0) {
-        const next = [...form.digits];
-        next[index - 1] = "";
-        setForm((f) => ({ ...f, digits: next }));
-        digitRefs.current[index - 1]?.focus();
-      } else {
-        const next = [...form.digits];
-        next[index] = "";
-        setForm((f) => ({ ...f, digits: next }));
+      setForm((prev) => {
+        const digits = [...prev.digits];
+        digits[index] = char;
+        return { ...prev, digits };
+      });
+
+      if (status === "error") setStatus("idle");
+      if (char && index < CODE_LENGTH - 1) {
+        digitRefs.current[index + 1]?.focus();
       }
-    } else if (e.key === "ArrowLeft" && index > 0) {
-      digitRefs.current[index - 1]?.focus();
-    } else if (e.key === "ArrowRight" && index < CODE_LENGTH - 1) {
-      digitRefs.current[index + 1]?.focus();
-    } else if (e.key === "Enter" && !isDisabled) {
-      handleJoin();
-    }
-  }
+    },
+    [status],
+  );
 
-  function handleDigitPaste(e: React.ClipboardEvent) {
-    e.preventDefault();
-    const pasted = e.clipboardData
-      .getData("text")
-      .split("")
-      .map(sanitizeCodeChar)
-      .filter(Boolean)
-      .slice(0, CODE_LENGTH);
+  const handleDigitKeyDown = useCallback(
+    (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Backspace") {
+        setForm((prev) => {
+          const digits = [...prev.digits];
+          if (!digits[index] && index > 0) {
+            digits[index - 1] = "";
+            digitRefs.current[index - 1]?.focus();
+          } else {
+            digits[index] = "";
+          }
+          return { ...prev, digits };
+        });
+        return;
+      }
 
-    const next = [...EMPTY_DIGITS()];
-    pasted.forEach((char, i) => { next[i] = char; });
-    setForm((f) => ({ ...f, digits: next }));
-    if (status === "error") setStatus("idle");
+      if (e.key === "ArrowLeft" && index > 0) {
+        digitRefs.current[index - 1]?.focus();
+        return;
+      }
 
-    const focusIndex = Math.min(pasted.length, CODE_LENGTH - 1);
-    digitRefs.current[focusIndex]?.focus();
-  }
+      if (e.key === "ArrowRight" && index < CODE_LENGTH - 1) {
+        digitRefs.current[index + 1]?.focus();
+      }
+    },
+    [],
+  );
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  const handleDigitPaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      e.preventDefault();
+
+      const sanitized = e.clipboardData
+        .getData("text")
+        .split("")
+        .map(sanitizeCodeChar)
+        .filter(Boolean)
+        .slice(0, CODE_LENGTH);
+
+      const digits = createEmptyDigits();
+      sanitized.forEach((char, i) => { digits[i] = char; });
+
+      setForm((prev) => ({ ...prev, digits }));
+      if (status === "error") setStatus("idle");
+
+      const focusIndex = Math.min(sanitized.length, CODE_LENGTH - 1);
+      digitRefs.current[focusIndex]?.focus();
+    },
+    [status],
+  );
+
+  // ── Submit ────────────────────────────────────────────────────────────────
 
   const handleJoin = useCallback(async () => {
     const name = form.name.trim();
@@ -146,27 +187,46 @@ export function JoinRoomModal({ open, onClose }: Props) {
     try {
       const res = await fetch(`${API_URL}/players`, {
         method: "POST",
+        /**
+         * credentials: "include" instrui o browser a:
+         * 1. Enviar cookies existentes na requisição.
+         * 2. Aceitar e persistir cookies Set-Cookie da resposta.
+         *
+         * O backend seta `player_session` como HttpOnly; Secure; SameSite=Strict.
+         * JavaScript nunca terá acesso a esse valor — nem document.cookie o expõe.
+         */
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name, roomCode: code }),
+        body: JSON.stringify({ name, roomCode: code }),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body?.message ?? `Erro ${res.status}`);
+        throw new Error(
+          (body as { message?: string })?.message ?? `Erro ${res.status}`,
+        );
       }
 
       const data: JoinRoomResponse = await res.json();
 
-      localStorage.setItem("playerId", data.player.id);
-      localStorage.setItem("roomCode", data.room.code);
-
+      /**
+       * ✅ SEGURANÇA: Nenhuma informação de identidade é armazenada no frontend.
+       *
+       * - playerId   → exclusivamente no cookie HttpOnly (inacessível ao JS)
+       * - isHost     → backend revalida via cookie em cada operação protegida
+       * - roomCode   → mantido apenas para navegação (não-sensível)
+       *
+       * sessionStorage e localStorage são deliberadamente evitados para dados
+       * de identidade — vulneráveis a XSS por design.
+       */
       router.push(`/room/${data.room.code}/lobby`);
     } catch (err) {
       setStatus("error");
       setErrorMsg(
-        err instanceof Error ? err.message : "Não foi possível entrar na sala."
+        err instanceof Error ? err.message : "Não foi possível entrar na sala.",
       );
-      // Shake focus back to first empty digit or name
+
+      // Reposiciona o foco no primeiro campo inválido para acessibilidade
       const firstEmpty = form.digits.findIndex((d) => !d);
       if (firstEmpty !== -1) {
         digitRefs.current[firstEmpty]?.focus();
@@ -176,7 +236,7 @@ export function JoinRoomModal({ open, onClose }: Props) {
     }
   }, [form, status, router]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <Modal
@@ -217,7 +277,6 @@ export function JoinRoomModal({ open, onClose }: Props) {
             Código da sala
           </label>
 
-          {/* Digit inputs */}
           <div
             role="group"
             aria-label="Código da sala, 6 caracteres"
@@ -232,7 +291,7 @@ export function JoinRoomModal({ open, onClose }: Props) {
                 type="text"
                 inputMode="text"
                 value={digit}
-                maxLength={2} // 2 allows catching the extra char for replace logic
+                maxLength={2}
                 onChange={(e) => handleDigitChange(i, e.target.value)}
                 onKeyDown={(e) => handleDigitKeyDown(i, e)}
                 aria-label={`Caractere ${i + 1} de ${CODE_LENGTH}`}
@@ -249,7 +308,6 @@ export function JoinRoomModal({ open, onClose }: Props) {
             ))}
           </div>
 
-          {/* Progress bar */}
           <div className="h-0.5 w-full overflow-hidden rounded-full bg-zinc-800">
             <div
               className="h-full rounded-full bg-indigo-500 transition-all duration-300"
@@ -287,14 +345,16 @@ export function JoinRoomModal({ open, onClose }: Props) {
                 d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
               />
             </svg>
-            <p className="text-xs font-medium leading-relaxed text-red-400">{errorMsg}</p>
+            <p className="text-xs font-medium leading-relaxed text-red-400">
+              {errorMsg}
+            </p>
           </div>
         )}
 
         {/* ── Submit ── */}
         <button
           onClick={handleJoin}
-          disabled={isDisabled}
+          disabled={isSubmitDisabled}
           aria-busy={status === "loading"}
           className={[
             "relative flex w-full items-center justify-center gap-2.5",
@@ -315,9 +375,13 @@ export function JoinRoomModal({ open, onClose }: Props) {
                 fill="none"
               >
                 <circle
-                  cx="12" cy="12" r="10"
-                  stroke="currentColor" strokeWidth="3"
-                  strokeDasharray="31.4" strokeDashoffset="10"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeDasharray="31.4"
+                  strokeDashoffset="10"
                   strokeLinecap="round"
                 />
               </svg>
