@@ -13,6 +13,7 @@ import {
   useMotionValue,
   useTransform,
   animate,
+  type Variants,
 } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
@@ -93,63 +94,69 @@ function generateToastId(): string {
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
-const overlayVariants = {
+const overlayVariants: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.3 } },
   exit: { opacity: 0, transition: { duration: 0.4 } },
-} as const;
+};
 
-const gridVariants = {
+const gridVariants: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.6 } },
-} as const;
+};
 
-const numberVariants = {
+const numberVariants: Variants = {
   enter: { scale: 1.6, opacity: 0, filter: "blur(8px)" },
   center: {
     scale: 1, opacity: 1, filter: "blur(0px)",
     transition: { type: "spring", stiffness: 300, damping: 18 },
   },
   exit: { scale: 0.6, opacity: 0, filter: "blur(6px)", transition: { duration: 0.2 } },
-} as const;
+};
 
-const goVariants = {
+const goVariants: Variants = {
   enter: { scale: 0.4, opacity: 0, letterSpacing: "-0.1em" },
   center: {
     scale: 1, opacity: 1, letterSpacing: "0.06em",
     transition: { type: "spring", stiffness: 260, damping: 14 },
   },
   exit: { scale: 1.2, opacity: 0, transition: { duration: 0.25 } },
-} as const;
+};
 
-const labelVariants = {
+const labelVariants: Variants = {
   hidden: { opacity: 0, y: 10 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
-} as const;
+};
 
-const shockwaveVariants = {
+/**
+ * O `ease` com bezier deve ser uma tupla de 4 números ([x1,y1,x2,y2]),
+ * não um array genérico number[]. O `as const` garante que o TypeScript
+ * infira o tipo `readonly [0.2, 0.8, 0.4, 1]` em vez de `number[]`,
+ * satisfazendo o tipo `Easing` do Framer Motion.
+ */
+const shockwaveVariants: Variants = {
   animate: (delay: number) => ({
     scale: [0.8, 3.5],
     opacity: [0.7, 0],
-    transition: { duration: 0.9, delay, ease: [0.2, 0.8, 0.4, 1] },
+    transition: {
+      duration: 0.9,
+      delay,
+      ease: [0.2, 0.8, 0.4, 1] as [number, number, number, number],
+    },
   }),
-} as const;
+};
 
 // ─── Quick Join Modal (inline) ────────────────────────────────────────────────
 
-/**
- * Exibido quando o socket é rejeitado pelo backend (cookie ausente/expirado).
- * Permite ao usuário entrar na sala informando apenas o nome.
- * Após o join bem-sucedido, o backend seta um novo cookie player_session
- * e o socket reconecta automaticamente com a nova identidade.
- */
 function QuickJoinModal({
   open,
   roomCode,
+  roomName,
   onJoined,
 }: {
   open: boolean;
   roomCode: string;
+  roomName: string;
   onJoined: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -179,7 +186,7 @@ function QuickJoinModal({
     try {
       const res = await fetch(`${API_URL}/players`, {
         method: "POST",
-        credentials: "include", // backend seta novo cookie player_session
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, roomCode }),
       });
@@ -189,11 +196,6 @@ function QuickJoinModal({
         throw new Error((body as { message?: string })?.message ?? `Erro ${res.status}`);
       }
 
-      /**
-       * Não lemos nada do body de resposta para identidade.
-       * O backend setou um novo cookie player_session — o socket
-       * vai reconectar e o backend populará client.data.player via guard.
-       */
       onJoined();
     } catch (err) {
       setStatus("error");
@@ -204,13 +206,12 @@ function QuickJoinModal({
   return (
     <Modal
       open={open}
-      onClose={() => {}}
+      onClose={() => { }}
       title="Entrar na Sala"
       subtitle={
         <>
-          Sala{" "}
-          <span className="font-black tracking-widest text-indigo-400">{roomCode}</span>
-          {" "}— insira seu nome para participar.
+          <span className="font-bold text-white">{roomName}</span>
+          {" — "}insira seu nome para participar.
         </>
       }
     >
@@ -220,7 +221,7 @@ function QuickJoinModal({
             <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
           </svg>
           <span className="text-xs text-zinc-400">
-            Você está entrando na sala{" "}
+            Código:{" "}
             <span className="font-black tracking-widest text-white" style={{ fontFamily: "var(--font-syne)" }}>
               {roomCode}
             </span>
@@ -329,7 +330,7 @@ function Toast({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss: (id: str
             "animate-in fade-in slide-in-from-bottom-2",
             t.type === "success" ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
               : t.type === "error" ? "border-red-500/30 bg-red-500/15 text-red-300"
-              : "border-indigo-500/30 bg-indigo-500/15 text-indigo-300",
+                : "border-indigo-500/30 bg-indigo-500/15 text-indigo-300",
           ].join(" ")}
         >
           {t.type === "success" && (
@@ -411,7 +412,7 @@ function EmptyQuestions({ onAdd }: { onAdd: () => void }) {
 
 const OPTION_LABELS = ["A", "B", "C", "D"] as const;
 
-function QuestionItem({ question, index, onDelete }: { question: Question; index: number; onDelete: (id: string) => void }) {
+function QuestionItem({ question, index, onDelete, setCurrect }: { question: Question; index: number; onDelete: (id: string) => void, setCurrect: (id: string) => Promise<void> }) {
   const [expanded, setExpanded] = useState(false);
   const [options, setOptions] = useState<Option[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
@@ -461,10 +462,20 @@ function QuestionItem({ question, index, onDelete }: { question: Question; index
             <p className="py-1 text-[11px] text-zinc-600">Nenhuma alternativa cadastrada.</p>
           ) : (
             options.map((opt, i) => (
-              <div key={opt.id} className={["flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs transition-colors", opt.isCorrect ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-zinc-800/60 bg-zinc-900/60 text-zinc-400"].join(" ")}>
+              <div key={opt.id}
+                onClick={async () => {
+                  await setCurrect(opt.id);
+                  setOptions(prev =>
+                    prev.map(o => ({ ...o, isCorrect: o.id === opt.id }))
+                  );
+                }}
+                className={["flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs transition-colors", opt.isCorrect ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-zinc-800/60 bg-zinc-900/60 text-zinc-400"].join(" ")}>
                 <span className={["flex size-5 shrink-0 items-center justify-center rounded-md text-[10px] font-bold", opt.isCorrect ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-500"].join(" ")}>{OPTION_LABELS[i] ?? i + 1}</span>
                 <span className="flex-1 leading-snug">{opt.title}</span>
-                {opt.isCorrect && <svg className="size-3.5 shrink-0 text-emerald-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>}
+                {
+                  opt.isCorrect &&
+                  <svg className="size-3.5 shrink-0 text-emerald-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
+                }
               </div>
             ))
           )}
@@ -552,11 +563,12 @@ function CountdownOverlay({ count }: { count: number }) {
 interface Props {
   code: string;
   roomId: string;
+  roomName: string;
   playersData: Player[];
   questionsData: Question[];
 }
 
-export function LobbyClient({ code, roomId, playersData, questionsData }: Props) {
+export function LobbyClient({ code, roomId, roomName, playersData, questionsData }: Props) {
   const router = useRouter();
 
   const [players, setPlayers] = useState<Player[]>(playersData);
@@ -569,12 +581,6 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
   const [starting, setStarting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [socketStatus, setSocketStatus] = useState<"connecting" | "connected" | "disconnected" | "error">("connecting");
-
-  /**
-   * quickJoinOpen é true quando o backend rejeita a conexão WS
-   * (cookie ausente/expirado). Isso acontece quando o usuário acessa
-   * a URL diretamente sem ter feito login antes.
-   */
   const [quickJoinOpen, setQuickJoinOpen] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
@@ -609,7 +615,7 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
     }, 1000);
   }, []);
 
-  // ── Socket (único efeito) ─────────────────────────────────────────────────
+  // ── Socket ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const socket = createSocket();
@@ -617,7 +623,7 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
 
     function onConnect() {
       setSocketStatus("connected");
-      setQuickJoinOpen(false); // fecha o modal se estava aberto
+      setQuickJoinOpen(false);
       if (joinedRef.current) return;
       joinedRef.current = true;
       socket.emit("join_room", { roomCode: code });
@@ -625,18 +631,10 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
 
     function onDisconnect(reason: string) {
       setSocketStatus("disconnected");
-
       if (reason === "io server disconnect") {
-        /**
-         * Backend desconectou deliberadamente — provavelmente cookie
-         * ausente ou inválido (WsAuthGuard rejeitou).
-         * Abrimos o QuickJoinModal para o usuário se identificar.
-         */
         setQuickJoinOpen(true);
         return;
       }
-
-      // Desconexão de rede — resetamos joinedRef para re-emitir join_room
       joinedRef.current = false;
     }
 
@@ -698,20 +696,13 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-  // ── Callback do QuickJoin ─────────────────────────────────────────────────
+  // ── Callbacks ─────────────────────────────────────────────────────────────
 
-  /**
-   * Chamado após o fetch POST /players ter sucesso.
-   * O backend setou um novo cookie player_session.
-   * Reconectamos o socket — no próximo handshake o guard vai ler o cookie novo.
-   */
   const handleQuickJoined = useCallback(() => {
     setQuickJoinOpen(false);
-    joinedRef.current = false; // permite re-emitir join_room na reconexão
+    joinedRef.current = false;
     socketRef.current?.connect();
   }, []);
-
-  // ── Actions ───────────────────────────────────────────────────────────────
 
   const handleCopyCode = useCallback(async () => {
     try {
@@ -739,6 +730,15 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
     }
   }, [addToast]);
 
+  const handleUpdateToCurrectQuestion = async (id: string) => {
+    try {
+      await questionService.updateCurrect(id);
+      addToast("Alternativa correta atualizada!", "success");
+    } catch {
+      addToast("Erro ao atualizar alternativa.", "error");
+    }
+  }
+
   const handleStartGame = useCallback(() => {
     if (questions.length === 0) {
       addToast("Adicione pelo menos uma pergunta antes de iniciar.", "error");
@@ -754,10 +754,10 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
     <>
       {countdown !== null && <CountdownOverlay count={countdown} />}
 
-      {/* Quick Join — aparece quando o backend rejeita o cookie */}
       <QuickJoinModal
         open={quickJoinOpen}
         roomCode={code}
+        roomName={roomName}
         onJoined={handleQuickJoined}
       />
 
@@ -779,12 +779,15 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
               <span className="hidden text-sm font-black tracking-tight text-white sm:block" style={{ fontFamily: "var(--font-syne)" }}>QUIZZY</span>
             </div>
 
-            <div className="flex flex-col items-center gap-0.5">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Código da sala</span>
-              <div className="flex items-center gap-2.5">
-                <span className="text-2xl font-black tracking-widest text-white sm:text-3xl" style={{ fontFamily: "var(--font-syne)" }}>{code}</span>
-                <button onClick={handleCopyCode} title="Copiar código" className="flex size-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80 text-zinc-400 transition-all hover:border-indigo-500/60 hover:bg-indigo-500/10 hover:text-indigo-300 active:scale-90">
-                  <svg className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" /></svg>
+            {/* Nome + código da sala */}
+            <div className="flex min-w-0 flex-col items-center gap-0.5">
+              <h1 className="max-w-48 truncate text-sm font-bold text-white sm:max-w-64">
+                {roomName}
+              </h1>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-semibold tracking-widest text-zinc-500">{code}</span>
+                <button onClick={handleCopyCode} title="Copiar código" className="flex size-6 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900/80 text-zinc-500 transition-all hover:border-indigo-500/60 hover:bg-indigo-500/10 hover:text-indigo-300 active:scale-90">
+                  <svg className="size-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" /></svg>
                 </button>
               </div>
             </div>
@@ -853,7 +856,7 @@ export function LobbyClient({ code, roomId, playersData, questionsData }: Props)
                 </div>
                 {questions.length === 0 ? <EmptyQuestions onAdd={handleAddQuestion} /> : (
                   <div className="flex flex-col gap-2">
-                    {questions.map((q, i) => <QuestionItem key={q.id} question={q} index={i} onDelete={handleDeleteQuestion} />)}
+                    {questions.map((q, i) => <QuestionItem key={q.id} question={q} index={i} onDelete={handleDeleteQuestion} setCurrect={handleUpdateToCurrectQuestion} />)}
                   </div>
                 )}
               </div>

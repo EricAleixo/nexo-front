@@ -43,12 +43,8 @@ interface Props {
   players: Player[];
   questions: Question[];
   answersPerQuestion: Answer[][];
-  /**
-   * ID do jogador atual, resolvido pelo servidor via cookie player_session.
-   * Null se o cookie expirou ou o jogador não pertence à sala.
-   * NUNCA derivado de sessionStorage.
-   */
-  currentPlayerId: string | null;
+  currentPlayer: Player | null;
+  currentIsHost: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -557,19 +553,10 @@ function PlayerView({
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function FinishClient({ code, players, questions, answersPerQuestion, currentPlayerId }: Props) {
+export function FinishClient({ code, players, questions, answersPerQuestion, currentPlayer, currentIsHost }: Props) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
-
-  /**
-   * currentPlayer resolvido a partir do currentPlayerId passado pelo servidor.
-   * O servidor leu o cookie player_session e extraiu o playerId do JWT.
-   * Nenhuma leitura de sessionStorage aqui.
-   */
-  
-  // O host não está sendo detectado
-  const currentPlayer = players.find((p) => p.id === currentPlayerId) ?? null;
-  const isHost = currentPlayer?.isHost ?? false;
+  const isHost = currentIsHost;
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 80);
@@ -626,7 +613,6 @@ export function FinishClient({ code, players, questions, answersPerQuestion, cur
           ) : currentPlayer ? (
             <PlayerView currentPlayer={currentPlayer} players={players} questions={questions} answersPerQuestion={answersPerQuestion} />
           ) : (
-            // Cookie expirado ou jogador não encontrado — exibe visão geral
             <HostView players={players} questions={questions} answersPerQuestion={answersPerQuestion} />
           )}
 

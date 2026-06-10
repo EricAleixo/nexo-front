@@ -29,6 +29,20 @@ class PlayerService {
 
         return response.json();
     }
+
+    async me(token: string) {
+        const response = await fetch(`${API_URL}/players/me`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        return response.json();
+    }
 }
 
 export const playerService = new PlayerService();

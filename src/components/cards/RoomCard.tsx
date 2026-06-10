@@ -34,7 +34,7 @@ export function RoomCard({ room, user }: RoomCardProps) {
   return (
     <article className="group relative flex flex-col gap-4 rounded-2xl border border-indigo-500/10 bg-white/3 p-5 backdrop-blur-sm transition-all duration-300 hover:border-indigo-500/30 hover:bg-white/5 hover:shadow-lg hover:shadow-indigo-500/5">
 
-      {/* Header — três colunas: código | título+usuário | badge */}
+      {/* Header — três colunas: código | nome+usuário | badge */}
       <div className="flex items-start gap-3">
 
         {/* Code pill */}
@@ -47,10 +47,10 @@ export function RoomCard({ room, user }: RoomCardProps) {
           </span>
         </div>
 
-        {/* Título + usuário — flex-1 com min-w-0 para truncar corretamente */}
+        {/* Nome da sala + usuário */}
         <div className="flex-1 min-w-0">
           <h3 className="truncate text-sm font-bold leading-snug text-zinc-100 group-hover:text-white transition-colors">
-            {room.topic}
+            {room.name}
           </h3>
           <p className="mt-0.5 text-xs text-zinc-500">
             por{" "}
@@ -58,7 +58,7 @@ export function RoomCard({ room, user }: RoomCardProps) {
           </p>
         </div>
 
-        {/* Badge "Sua sala" — flex-shrink-0 para não colapsar, sem position absolute */}
+        {/* Badge "Sua sala" */}
         {isOwner && (
           <span className="shrink-0 self-start rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-indigo-400">
             Sua sala
@@ -105,7 +105,10 @@ export function RoomCard({ room, user }: RoomCardProps) {
           {room.participantCount} participante{room.participantCount !== 1 ? "s" : ""}
         </span>
 
-        <Link href={`room/${room.code}`} className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold text-indigo-300 transition-all hover:border-indigo-400/40 hover:bg-indigo-500/20 hover:text-indigo-200">
+        <Link
+          href={`room/${room.code}`}
+          className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold text-indigo-300 transition-all hover:border-indigo-400/40 hover:bg-indigo-500/20 hover:text-indigo-200"
+        >
           Entrar
         </Link>
       </div>

@@ -7,10 +7,6 @@ import { useAuth } from "../AuthContext";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-/**
- * playerId deliberadamente ausente — identidade fica só no cookie HttpOnly.
- * O frontend só precisa de room.code para navegar.
- */
 interface CreateRoomResponse {
   room: { id: string; code: string };
   player: { name: string; isHost: boolean };
@@ -22,6 +18,7 @@ type Status = "idle" | "loading" | "error";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/backend";
 const MAX_NAME_LENGTH = 24;
+const MAX_ROOM_NAME_LENGTH = 32;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -33,27 +30,33 @@ interface Props {
 export function CreateRoomModal({ open, onClose }: Props) {
   const { user } = useAuth();
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const playerNameRef = useRef<HTMLInputElement>(null);
 
   const [playerName, setPlayerName] = useState("");
+  const [roomName, setRoomName] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (open) {
-      const t = setTimeout(() => inputRef.current?.focus(), 80);
+      const t = setTimeout(() => playerNameRef.current?.focus(), 80);
       return () => clearTimeout(t);
     }
     setPlayerName("");
+    setRoomName("");
     setStatus("idle");
     setErrorMsg("");
   }, [open]);
 
-  const isDisabled = status === "loading" || playerName.trim().length === 0;
+  const isDisabled =
+    status === "loading" ||
+    playerName.trim().length === 0 ||
+    roomName.trim().length === 0;
 
   async function handleCreate() {
     const name = playerName.trim();
-    if (!name || status === "loading") return;
+    const room = roomName.trim();
+    if (!name || !room || status === "loading") return;
 
     setStatus("loading");
     setErrorMsg("");
@@ -61,14 +64,9 @@ export function CreateRoomModal({ open, onClose }: Props) {
     try {
       const res = await fetch(`${API_URL}/rooms`, {
         method: "POST",
-        /**
-         * credentials: "include" faz o browser persistir o cookie
-         * player_session que o backend seta no Set-Cookie da resposta.
-         * Sem isso o cookie é ignorado em requisições cross-origin.
-         */
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerName: name, userId: user?.id }),
+        body: JSON.stringify({ playerName: name, roomName: room, userId: user?.id }),
       });
 
       if (!res.ok) {
@@ -79,13 +77,6 @@ export function CreateRoomModal({ open, onClose }: Props) {
       }
 
       const data: CreateRoomResponse = await res.json();
-
-      /**
-       * ✅ Nenhum dado de identidade no sessionStorage.
-       * playerId e isHost vivem exclusivamente no cookie HttpOnly
-       * player_session setado pelo backend nesta resposta.
-       * O frontend só guarda o código da sala para navegação.
-       */
       router.push(`/room/${data.room.code}/lobby`);
     } catch (err) {
       setStatus("error");
@@ -95,89 +86,130 @@ export function CreateRoomModal({ open, onClose }: Props) {
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") void handleCreate();
-  }
-
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Criar Sala"
-      subtitle="Insira seu nome para começar."
+      subtitle="Preencha os campos para começar."
     >
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <label
-            htmlFor="player-name"
-            className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500"
-          >
-            Seu nome
-          </label>
-
-          <div className="relative">
-            <input
-              ref={inputRef}
-              id="player-name"
-              type="text"
-              value={playerName}
-              onChange={(e) => {
-                setPlayerName(e.target.value.slice(0, MAX_NAME_LENGTH));
-                if (status === "error") setStatus("idle");
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Ex: Eric"
-              maxLength={MAX_NAME_LENGTH}
-              autoComplete="off"
-              spellCheck={false}
-              aria-invalid={status === "error"}
-              aria-describedby={status === "error" ? "create-error" : undefined}
-              className={[
-                "w-full rounded-xl border bg-zinc-900 px-4 py-3.5 pr-14",
-                "text-base font-medium text-white placeholder-zinc-600",
-                "outline-none transition-all duration-200",
-                status === "error"
-                  ? "border-red-500/70 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                  : "border-zinc-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20",
-              ].join(" ")}
-            />
-
-            <span
-              aria-hidden="true"
-              className={[
-                "absolute right-4 top-1/2 -translate-y-1/2 text-[11px] tabular-nums transition-colors",
-                playerName.length >= MAX_NAME_LENGTH ? "text-amber-400" : "text-zinc-600",
-              ].join(" ")}
+        {/* ── Campos ── */}
+        <div className="flex flex-col gap-4">
+          {/* Nome do jogador */}
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="player-name"
+              className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500"
             >
-              {playerName.length}/{MAX_NAME_LENGTH}
-            </span>
+              Seu nome
+            </label>
+            <div className="relative">
+              <input
+                ref={playerNameRef}
+                id="player-name"
+                type="text"
+                value={playerName}
+                onChange={(e) => {
+                  setPlayerName(e.target.value.slice(0, MAX_NAME_LENGTH));
+                  if (status === "error") setStatus("idle");
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") void handleCreate(); }}
+                placeholder="Ex: Eric"
+                maxLength={MAX_NAME_LENGTH}
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={status === "error"}
+                className={[
+                  "w-full rounded-xl border bg-zinc-900 px-4 py-3.5 pr-14",
+                  "text-base font-medium text-white placeholder-zinc-600",
+                  "outline-none transition-all duration-200",
+                  status === "error"
+                    ? "border-red-500/70 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                    : "border-zinc-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20",
+                ].join(" ")}
+              />
+              <span
+                aria-hidden="true"
+                className={[
+                  "absolute right-4 top-1/2 -translate-y-1/2 text-[11px] tabular-nums transition-colors",
+                  playerName.length >= MAX_NAME_LENGTH ? "text-amber-400" : "text-zinc-600",
+                ].join(" ")}
+              >
+                {playerName.length}/{MAX_NAME_LENGTH}
+              </span>
+            </div>
           </div>
 
-          {status === "error" && (
-            <p
-              id="create-error"
-              role="alert"
-              className="flex items-center gap-1.5 text-xs font-medium text-red-400"
+          {/* Nome da sala */}
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="room-name"
+              className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500"
             >
-              <svg
+              Nome da sala
+            </label>
+            <div className="relative">
+              <input
+                id="room-name"
+                type="text"
+                value={roomName}
+                onChange={(e) => {
+                  setRoomName(e.target.value.slice(0, MAX_ROOM_NAME_LENGTH));
+                  if (status === "error") setStatus("idle");
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") void handleCreate(); }}
+                placeholder="Ex: Quiz de Geografia"
+                maxLength={MAX_ROOM_NAME_LENGTH}
+                autoComplete="off"
+                spellCheck={false}
+                className={[
+                  "w-full rounded-xl border bg-zinc-900 px-4 py-3.5 pr-14",
+                  "text-base font-medium text-white placeholder-zinc-600",
+                  "outline-none transition-all duration-200",
+                  status === "error"
+                    ? "border-red-500/70 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                    : "border-zinc-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20",
+                ].join(" ")}
+              />
+              <span
                 aria-hidden="true"
-                className="size-3.5 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                viewBox="0 0 24 24"
+                className={[
+                  "absolute right-4 top-1/2 -translate-y-1/2 text-[11px] tabular-nums transition-colors",
+                  roomName.length >= MAX_ROOM_NAME_LENGTH ? "text-amber-400" : "text-zinc-600",
+                ].join(" ")}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-                />
-              </svg>
-              {errorMsg}
-            </p>
-          )}
+                {roomName.length}/{MAX_ROOM_NAME_LENGTH}
+              </span>
+            </div>
+          </div>
         </div>
 
+        {/* ── Erro ── */}
+        {status === "error" && (
+          <p
+            role="alert"
+            className="flex items-center gap-1.5 text-xs font-medium text-red-400"
+          >
+            <svg
+              aria-hidden="true"
+              className="size-3.5 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+              />
+            </svg>
+            {errorMsg}
+          </p>
+        )}
+
+        {/* ── Botão ── */}
         <button
           onClick={() => void handleCreate()}
           disabled={isDisabled}
@@ -207,7 +239,7 @@ export function CreateRoomModal({ open, onClose }: Props) {
               Criar Sala
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full"
+                className="pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full"
               />
             </>
           )}

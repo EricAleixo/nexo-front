@@ -26,7 +26,9 @@ class QuestionService {
   }): Promise<Question> {
     const response = await fetch(`${API_URL}/questions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(data),
     });
 
@@ -49,6 +51,30 @@ class QuestionService {
     return response.json();
   }
 
+  async update(
+    id: string,
+    data: {
+      title: string;
+      order: number;
+      roomId: string;
+      score: number;
+    }
+  ): Promise<Question> {
+    const response = await fetch(`${API_URL}/questions/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update question");
+    }
+
+    return response.json();
+  }
+
   async delete(id: string): Promise<void> {
     const response = await fetch(`${API_URL}/questions/${id}`, {
       method: "DELETE",
@@ -66,7 +92,9 @@ class QuestionService {
   }): Promise<Option> {
     const response = await fetch(`${API_URL}/questions/options`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(data),
     });
 
@@ -77,10 +105,15 @@ class QuestionService {
     return response.json();
   }
 
-  async findOptionsByQuestionId(questionId: string): Promise<Option[]> {
-    const response = await fetch(`${API_URL}/questions/${questionId}/options`, {
-      cache: "no-store",
-    });
+  async findOptionsByQuestionId(
+    questionId: string
+  ): Promise<Option[]> {
+    const response = await fetch(
+      `${API_URL}/questions/${questionId}/options`,
+      {
+        cache: "no-store",
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to fetch options");
@@ -89,10 +122,57 @@ class QuestionService {
     return response.json();
   }
 
+  async updateOption(
+    id: string,
+    data: {
+      title: string;
+      isCorrect: boolean;
+      questionId: string;
+    }
+  ): Promise<Option> {
+    const response = await fetch(
+      `${API_URL}/questions/options/${id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to update option");
+    }
+
+    return response.json();
+  }
+
+  async updateCurrect(id: string): Promise<Option> {
+    const response = await fetch(
+      `${API_URL}/questions/options/${id}/correct`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to set correct option");
+    }
+
+    return response.json();
+  }
+
   async deleteOption(id: string): Promise<void> {
-    const response = await fetch(`${API_URL}/questions/options/${id}`, {
-      method: "DELETE",
-    });
+    const response = await fetch(
+      `${API_URL}/questions/options/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to delete option");

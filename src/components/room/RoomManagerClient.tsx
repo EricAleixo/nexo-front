@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { questionService } from "@/src/services/question.service";
 import { AddQuestionModal } from "../modals/AddQuestionModal";
 import Link from "next/link";
+import { EditQuestionModal } from "../modals/EditQuestionModal";
 
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -14,15 +15,18 @@ type RoomStatus = "waiting" | "started" | "finished";
 interface Room {
     id: string;
     code: string;
+    name: string;
     status: RoomStatus;
     currentQuestion: number;
     createdAt: string;
 }
 
 interface Question {
-    id: string;
-    title: string;
-    order: number;
+  id: string;
+  title: string;
+  order: number;
+  roomId: string;
+  score: number;
 }
 
 interface ToastItem {
@@ -140,10 +144,12 @@ function QuestionItem({
     question,
     index,
     onDelete,
+    onEdit
 }: {
     question: Question;
     index: number;
     onDelete: (id: string) => void;
+    onEdit: (question: Question) => void;
 }) {
     const [expanded, setExpanded] = useState(false);
     const [options, setOptions] = useState<Option[]>([]);
@@ -196,6 +202,18 @@ function QuestionItem({
                         viewBox="0 0 24 24"
                     >
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                <button
+                    onClick={() => onEdit(question)}
+                    title="Editar questão"
+                    className="shrink-0 text-zinc-600 hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                    <svg className="size-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                            d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                     </svg>
                 </button>
 
@@ -331,6 +349,7 @@ export function RoomManagerClient({ room: initialRoom, initialQuestions }: Props
         open: boolean;
         status: RoomStatus | null;
     }>({ open: false, status: null });
+    const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
 
     // ── Toast ────────────────────────────────────────────────────────────────
 
@@ -366,12 +385,11 @@ export function RoomManagerClient({ room: initialRoom, initialQuestions }: Props
                     body: JSON.stringify({ status: nextStatus }),
                 }
             );
-            console.log(res)
             if (!res.ok) throw new Error();
             const updated: Room = await res.json();
             setRoom(updated);
             addToast("Status atualizado com sucesso!", "success");
-        } catch (e) {
+        } catch {
             addToast("Erro ao atualizar status.", "error");
         } finally {
             setStatusLoading(false);
@@ -393,6 +411,13 @@ export function RoomManagerClient({ room: initialRoom, initialQuestions }: Props
         } catch {
             addToast("Erro ao remover pergunta.", "error");
         }
+    }
+
+    function handleQuestionUpdated(updated: Question) {
+        setQuestions((prev) =>
+            prev.map((q) => (q.id === updated.id ? updated : q))
+        );
+        addToast("Pergunta atualizada!", "success");
     }
 
     // ── Copy code ────────────────────────────────────────────────────────────
@@ -432,8 +457,7 @@ export function RoomManagerClient({ room: initialRoom, initialQuestions }: Props
         },
     };
 
-    const activeDialog =
-        confirmDialog.status ? dialogConfig[confirmDialog.status] : null;
+    const activeDialog = confirmDialog.status ? dialogConfig[confirmDialog.status] : null;
 
     const statusActions: { status: RoomStatus; label: string; icon: React.ReactNode }[] = [
         {
@@ -512,24 +536,21 @@ export function RoomManagerClient({ room: initialRoom, initialQuestions }: Props
                             </span>
                         </div>
 
-                        {/* Code */}
-                        <div className="flex flex-col items-center gap-0.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-                                Código da sala
-                            </span>
-                            <div className="flex items-center gap-2.5">
-                                <span
-                                    className="text-2xl sm:text-3xl font-black tracking-widest text-white"
-                                    style={{ fontFamily: "var(--font-syne)" }}
-                                >
+                        {/* Nome + código da sala */}
+                        <div className="flex flex-col items-center gap-0.5 min-w-0">
+                            <h1 className="truncate max-w-48 text-sm font-bold text-white sm:max-w-72">
+                                {room.name}
+                            </h1>
+                            <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs font-semibold tracking-widest text-zinc-500">
                                     {room.code}
                                 </span>
                                 <button
                                     onClick={handleCopyCode}
                                     title="Copiar código"
-                                    className="flex size-8 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80 text-zinc-400 transition-all hover:border-indigo-500/60 hover:bg-indigo-500/10 hover:text-indigo-300 active:scale-90"
+                                    className="flex size-6 items-center justify-center rounded-md border border-zinc-700 bg-zinc-900/80 text-zinc-500 transition-all hover:border-indigo-500/60 hover:bg-indigo-500/10 hover:text-indigo-300 active:scale-90"
                                 >
-                                    <svg className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <svg className="size-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
                                     </svg>
                                 </button>
@@ -596,6 +617,7 @@ export function RoomManagerClient({ room: initialRoom, initialQuestions }: Props
                                         question={q}
                                         index={i}
                                         onDelete={handleDeleteQuestion}
+                                        onEdit={setEditingQuestion}
                                     />
                                 ))}
                             </div>
@@ -611,6 +633,12 @@ export function RoomManagerClient({ room: initialRoom, initialQuestions }: Props
                                 Informações
                             </h3>
                             <div className="flex flex-col gap-2.5">
+                                <div className="flex items-center justify-between gap-4">
+                                    <span className="shrink-0 text-xs text-zinc-500">Nome</span>
+                                    <span className="truncate text-xs font-semibold text-zinc-200 text-right" title={room.name}>
+                                        {room.name}
+                                    </span>
+                                </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs text-zinc-500">ID da sala</span>
                                     <span className="text-xs font-mono text-zinc-400 truncate max-w-40" title={room.id}>
@@ -717,6 +745,13 @@ export function RoomManagerClient({ room: initialRoom, initialQuestions }: Props
                 nextOrder={questions.length + 1}
                 onClose={() => setModalOpen(false)}
                 onQuestionAdded={handleQuestionAdded}
+            />
+
+            <EditQuestionModal
+                open={editingQuestion !== null}
+                question={editingQuestion}
+                onClose={() => setEditingQuestion(null)}
+                onQuestionUpdated={handleQuestionUpdated}
             />
 
             {activeDialog && (

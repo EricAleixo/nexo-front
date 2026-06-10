@@ -14,6 +14,8 @@ interface Question {
   id: string;
   title: string;
   order: number;
+  roomId: string;
+  score: number;
 }
 
 interface Props {
