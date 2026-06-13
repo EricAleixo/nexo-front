@@ -1,4 +1,4 @@
-import { LobbyClient } from "@/src/components/game/LobbyClient";
+import { LobbyClient } from "@/src/screens/lobby";
 import { playerService } from "@/src/services/players.service";
 import { questionService } from "@/src/services/question.service";
 import { roomService } from "@/src/services/room.service";
@@ -13,5 +13,13 @@ export default async function LobbyPage({ params }: Props) {
   const room = await roomService.findByCode(code);
   const questions = await questionService.findByRoomId(room.id);
 
-  return <LobbyClient code={code.toUpperCase()} playersData={players} roomId={room.id} questionsData={questions} />;
+  return (
+    <LobbyClient
+      code={code.toUpperCase()}
+      roomId={room.id}
+      roomName={room.name}
+      playersData={players}
+      questionsData={questions}
+    />
+  );
 }

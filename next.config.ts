@@ -2,18 +2,18 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
-    '192.168.0.5',
-    '192.168.0.5:3000',
+    '192.168.1.110',
+    '192.168.1.110:3000',
   ],
   async rewrites() {
     return [
       {
         source: '/backend/:path*',
-        destination: 'http://192.168.0.5:3000/:path*',
+        destination: 'http://192.168.1.110:3000/:path*',
       },
       {
         source: '/socket.io/:path*',
-        destination: 'http://192.168.0.5:3000/socket.io/:path*',
+        destination: 'http://192.168.1.110:3000/socket.io/:path*',
       },
     ];
   },

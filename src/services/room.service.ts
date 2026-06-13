@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
-import { Room } from "../lib/mock";
+import { Room } from "../types/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.0.5:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.1.110:3000";
 
 
 class RoomService {
@@ -73,6 +73,20 @@ class RoomService {
 
     return response.json();
   }
+
+  async update(roomId: string, data: { name?: string; subjectId?: string | null }): Promise<Room> {
+    const response = await fetch(`${API_URL}/rooms/${roomId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to update room");
+    }
+    return response.json();
+  }
+
 
   async delete(roomId: string): Promise<void> {
     const response = await fetch(`${API_URL}/rooms/${roomId}`, {

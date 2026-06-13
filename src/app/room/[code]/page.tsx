@@ -1,4 +1,4 @@
-import { RoomManagerClient } from "@/src/components/room/RoomManagerClient";
+import { RoomManagerClient } from "@/src/screens/room";
 import { questionService } from "@/src/services/question.service";
 import { roomService } from "@/src/services/room.service";
 import { notFound } from "next/navigation";

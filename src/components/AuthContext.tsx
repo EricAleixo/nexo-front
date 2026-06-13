@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Simulates an async auth call — swap for real fetch() later
   const login = useCallback(async (username: string, password: string) => {
-    const res = await fetch("http://192.168.0.5:3000/auth/login", {
+    const res = await fetch("http://192.168.1.110:3000/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(data?.message || "Erro ao fazer login");
     }
 
-    //http://192.168.0.5:3000 retorna: { ok: true, data: { user, token } }
+    //http://192.168.1.110:3000 retorna: { ok: true, data: { user, token } }
     const user = data.data.user;
 
     setUser(user);
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = useCallback(
     async (username: string, email: string, password: string) => {
-      const res = await fetch("http://192.168.0.5:3000/auth/signup", {
+      const res = await fetch("http://192.168.1.110:3000/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchMe = useCallback(async () => {
     try {
-      const res = await fetch("http://192.168.0.5:3000/auth/me", {
+      const res = await fetch("http://192.168.1.110:3000/auth/me", {
         method: "GET",
         credentials: "include",
       });

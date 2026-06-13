@@ -1,6 +1,7 @@
 "use client";
 
 import { questionService } from "@/src/services/question.service";
+import { Question } from "@/src/types/types";
 import { useState, useEffect, useCallback } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -10,13 +11,6 @@ interface Option {
   isCorrect: boolean;
 }
 
-interface Question {
-  id: string;
-  title: string;
-  order: number;
-  roomId: string;
-  score: number;
-}
 
 interface Props {
   open: boolean;

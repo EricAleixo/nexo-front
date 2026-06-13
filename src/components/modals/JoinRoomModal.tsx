@@ -3,6 +3,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "../ui/Modal";
+import {
+  modalErrorBoxClass,
+  modalInputClass,
+  modalLabelClass,
+  modalPrimaryButtonClass,
+} from "../ui/modalStyles";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -249,10 +255,7 @@ export function JoinRoomModal({ open, onClose }: Props) {
 
         {/* ── Player name ── */}
         <div className="flex flex-col gap-2">
-          <label
-            htmlFor="join-player-name"
-            className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500"
-          >
+          <label htmlFor="join-player-name" className={modalLabelClass}>
             Seu nome
           </label>
           <input
@@ -267,15 +270,13 @@ export function JoinRoomModal({ open, onClose }: Props) {
             autoComplete="off"
             spellCheck={false}
             aria-invalid={status === "error" && !isNameFilled}
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3.5 text-base font-medium text-white placeholder-zinc-600 outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            className={modalInputClass(status === "error" && !isNameFilled)}
           />
         </div>
 
         {/* ── Room code ── */}
         <div className="flex flex-col gap-3">
-          <label className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
-            Código da sala
-          </label>
+          <label className={modalLabelClass}>Código da sala</label>
 
           <div
             role="group"
@@ -296,21 +297,20 @@ export function JoinRoomModal({ open, onClose }: Props) {
                 onKeyDown={(e) => handleDigitKeyDown(i, e)}
                 aria-label={`Caractere ${i + 1} de ${CODE_LENGTH}`}
                 className={[
-                  "h-14 flex-1 min-w-0 rounded-xl border text-center text-xl font-black",
-                  "bg-zinc-900 text-white outline-none transition-all duration-200",
-                  "focus:ring-2 focus:ring-indigo-500/25",
+                  "h-14 flex-1 min-w-0 rounded-xl border text-center text-xl font-bold",
+                  "bg-slate-50 text-slate-800 outline-none transition-all duration-200",
+                  "focus:ring-2 focus:ring-blue-100",
                   digit
-                    ? "border-indigo-500 text-indigo-300 shadow-[0_0_14px_rgba(99,102,241,.28)]"
-                    : "border-zinc-700 focus:border-indigo-500/70",
+                    ? "border-blue-400 bg-blue-50 text-blue-600"
+                    : "border-slate-200 focus:border-blue-300",
                 ].join(" ")}
-                style={{ fontFamily: "var(--font-syne)" }}
               />
             ))}
           </div>
 
-          <div className="h-0.5 w-full overflow-hidden rounded-full bg-zinc-800">
+          <div className="h-1 w-full overflow-hidden rounded-full bg-slate-200">
             <div
-              className="h-full rounded-full bg-indigo-500 transition-all duration-300"
+              className="h-full rounded-full bg-blue-600 transition-all duration-300"
               style={{ width: `${(roomCode.length / CODE_LENGTH) * 100}%` }}
               role="progressbar"
               aria-valuenow={roomCode.length}
@@ -320,20 +320,17 @@ export function JoinRoomModal({ open, onClose }: Props) {
             />
           </div>
 
-          <p className="text-center text-[11px] text-zinc-600">
+          <p className="text-center text-xs text-slate-400">
             Cole o código — os campos preenchem automaticamente
           </p>
         </div>
 
         {/* ── Error ── */}
         {status === "error" && (
-          <div
-            role="alert"
-            className="flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/8 px-4 py-3"
-          >
+          <div role="alert" className={modalErrorBoxClass}>
             <svg
               aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 text-red-400"
+              className="mt-0.5 size-4 shrink-0 text-red-600"
               fill="none"
               stroke="currentColor"
               strokeWidth={2.5}
@@ -345,7 +342,7 @@ export function JoinRoomModal({ open, onClose }: Props) {
                 d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
               />
             </svg>
-            <p className="text-xs font-medium leading-relaxed text-red-400">
+            <p className="text-sm font-medium leading-relaxed text-red-600">
               {errorMsg}
             </p>
           </div>
@@ -353,18 +350,11 @@ export function JoinRoomModal({ open, onClose }: Props) {
 
         {/* ── Submit ── */}
         <button
-          onClick={handleJoin}
+          type="button"
+          onClick={() => void handleJoin()}
           disabled={isSubmitDisabled}
           aria-busy={status === "loading"}
-          className={[
-            "relative flex w-full items-center justify-center gap-2.5",
-            "overflow-hidden rounded-xl py-4 text-sm font-bold text-white",
-            "transition-all duration-200 active:scale-[.97]",
-            "disabled:cursor-not-allowed disabled:opacity-40",
-            status !== "loading"
-              ? "bg-indigo-500 hover:bg-indigo-400 hover:shadow-[0_0_28px_rgba(99,102,241,.45)]"
-              : "cursor-wait bg-indigo-600",
-          ].join(" ")}
+          className={modalPrimaryButtonClass(status === "loading")}
         >
           {status === "loading" ? (
             <>

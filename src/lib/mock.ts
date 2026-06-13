@@ -10,20 +10,6 @@ export interface User {
   avatarUrl?: string;
 }
 
-// Mirrors room_tb schema + user FK (userId added for the relationship)
-export interface Room {
-  id: string;
-  code: string;
-  name: string;
-  status: RoomStatus;
-  currentQuestion: number;
-  totalQuestions: number;
-  createdAt: string;
-  // Relationship: room belongs to a user (host)
-  userId: string;
-  participantCount: number;
-}
-
 // ─── Mock Users ───────────────────────────────────────────────────────────────
 
 export const MOCK_USERS: User[] = [
@@ -49,52 +35,6 @@ export const MOCK_USERS: User[] = [
 
 // ─── Mock Rooms ───────────────────────────────────────────────────────────────
 
-export const MOCK_ROOMS: Room[] = [
-  {
-    id: "room-001",
-    code: "ABC123",
-    name: "Quiz de Geografia",
-    status: "waiting",
-    currentQuestion: 0,
-    totalQuestions: 10,
-    createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    userId: "user-001",
-    participantCount: 3,
-  },
-  {
-    id: "room-002",
-    code: "XYZ789",
-    name: "Historia do Brasil",
-    status: "started",
-    currentQuestion: 4,
-    totalQuestions: 8,
-    createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    userId: "user-002",
-    participantCount: 7,
-  },
-  {
-    id: "room-003",
-    code: "QZT456",
-    name: "Ciências da Natureza",
-    status: "finished",
-    currentQuestion: 12,
-    totalQuestions: 12,
-    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    userId: "user-003",
-    participantCount: 5,
-  },
-  {
-    id: "room-004",
-    code: "LMN321",
-    name: "Cultura Pop anos 2000",
-    status: "waiting",
-    currentQuestion: 0,
-    totalQuestions: 15,
-    createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    userId: "user-001",
-    participantCount: 1,
-  },
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.0.5:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://192.168.1.110:3000";
 
 export interface Player {
     id: string;
